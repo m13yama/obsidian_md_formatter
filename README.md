@@ -4,7 +4,9 @@ ObsidianのMarkdownノートを、保存後にPrettierで自動整形するプ�
 
 ## インストール
 
-ビルド済みの `dist/prettier-md-formatter` フォルダを、使用するVaultの `.obsidian/plugins/` にコピーします。
+[0.1.0 Beta 1のリリースページ](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.1.0)から `prettier-md-formatter-0.1.0-beta.1.zip` をダウンロードし、解凍してできる `prettier-md-formatter` フォルダを、使用するVaultの `.obsidian/plugins/` にコピーします。
+
+ベータ版としてGitHubのPre-releaseで配布しています。Obsidianのコミュニティプラグイン一覧からのインストールにはまだ対応していません。
 
 ```text
 <Vault>/.obsidian/plugins/prettier-md-formatter/
@@ -23,6 +25,8 @@ npm run build
 ```
 
 `main.js` と配布用の `dist/prettier-md-formatter/` が生成されます。Prettier本体と対応するパーサーは同梱されるため、利用時のNode.jsやネット接続は不要です。モバイルでも使用できる構成ですが、実機での確認はまだ行っていません。
+
+ソースからビルドした場合は、生成された `dist/prettier-md-formatter` フォルダをVaultの `.obsidian/plugins/` にコピーしてください。
 
 ## 保存時の動作
 
