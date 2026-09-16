@@ -1,0 +1,30 @@
+{
+  "name": "obsidian-md-formatter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Customizable Prettier formatting on save for Obsidian.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "npm run typecheck && node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test --experimental-test-isolation=none tests/*.test.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "format": "prettier --write src tests *.json *.mjs *.md styles.css",
+    "format:check": "prettier --check src tests *.json *.mjs *.md styles.css"
+  },
+  "dependencies": {
+    "fast-diff": "1.3.0",
+    "prettier": "3.9.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "0.28.2",
+    "obsidian": "1.13.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3"
+  }
+}
