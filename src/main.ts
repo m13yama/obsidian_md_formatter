@@ -1,4 +1,10 @@
-import { MarkdownView, Notice, Plugin, TFile, type Editor } from "obsidian";
+import {
+  MarkdownView,
+  Notice,
+  Plugin,
+  type TFile,
+  type Editor,
+} from "obsidian";
 import { applyToEditor } from "./editor";
 import { formatMarkdown } from "./formatter";
 import { SaveFormatter } from "./save-formatter";
@@ -17,7 +23,6 @@ export default class MarkdownFormatterPlugin extends Plugin {
   private formatter!: SaveFormatter<TFile>;
   private revision = 0;
   private composing = new Set<Document>();
-  private pendingComposition = new Set<TFile>();
   private lastError = "";
   private lastErrorAt = 0;
 
@@ -25,10 +30,8 @@ export default class MarkdownFormatterPlugin extends Plugin {
     this.settings = loadSettings(await this.loadData());
     this.formatter = new SaveFormatter<TFile>({
       enabled: () => this.settings.formatOnSave,
-      delay: () => this.settings.debounceMs,
       revision: () => this.revision,
-      eligible: (file, manual) => this.eligible(file, manual),
-      read: (file) => this.app.vault.read(file),
+      eligible: (file) => this.eligible(file),
       editors: (file) => this.editors(file),
       format: async (source, file) => {
         if (
@@ -46,16 +49,6 @@ export default class MarkdownFormatterPlugin extends Plugin {
       },
       apply: (editor, before, after) =>
         applyToEditor(editor as Editor, before, after),
-      writeIfUnchanged: async (file, before, after, valid) => {
-        let written = false;
-        await this.app.vault.process(file, (current) => {
-          if (!valid() || this.editors(file).length || current !== before)
-            return current;
-          written = true;
-          return after;
-        });
-        return written;
-      },
       report: (error, file) => this.report(error, file.path),
     });
 
@@ -85,62 +78,89 @@ export default class MarkdownFormatterPlugin extends Plugin {
     });
     this.addCommand({
       id: "toggle-format-on-save",
-      name: "保存時のフォーマットを切り替え",
+      name: "Ctrl/Cmd+Sでのフォーマットを切り替え",
       callback: async () => {
         this.settings.formatOnSave = !this.settings.formatOnSave;
         await this.saveSettings();
         new Notice(
-          `保存時フォーマット: ${this.settings.formatOnSave ? "ON" : "OFF"}`,
+          `Ctrl/Cmd+Sでのフォーマット: ${this.settings.formatOnSave ? "ON" : "OFF"}`,
         );
       },
     });
 
     this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        if (!(file instanceof TFile)) return;
-        if (this.composing.size) this.pendingComposition.add(file);
-        else this.formatter.schedule(file);
-      }),
-    );
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => {
-        if (file instanceof TFile) {
-          this.formatter.cancel(file);
-          this.pendingComposition.delete(file);
-        }
-      }),
-    );
-    this.registerEvent(
-      this.app.vault.on("rename", (file) => {
+      this.app.vault.on("rename", () => {
         this.revision++;
-        if (file instanceof TFile) this.formatter.cancel(file);
       }),
     );
-    const watchComposition = (doc: Document) => {
+    const documents = new Set<Document>();
+    const watchDocument = (doc: Document) => {
+      if (documents.has(doc)) return;
+      documents.add(doc);
+      this.registerDomEvent(
+        doc,
+        "keydown",
+        (event) => {
+          if (
+            !this.settings.formatOnSave ||
+            event.key.toLowerCase() !== "s" ||
+            (!event.ctrlKey && !event.metaKey) ||
+            (event.ctrlKey && event.metaKey) ||
+            event.altKey ||
+            event.shiftKey ||
+            event.repeat ||
+            event.isComposing
+          )
+            return;
+          const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+          if (
+            !view?.file ||
+            view.getMode() !== "source" ||
+            view.containerEl.ownerDocument !== doc ||
+            !view.editor.hasFocus()
+          )
+            return;
+          // Let Obsidian handle the original save shortcut, including errors or skips.
+          void this.formatAndSave(view);
+        },
+        { capture: true },
+      );
       this.registerDomEvent(doc, "compositionstart", () => {
         this.composing.add(doc);
       });
       const finish = () => {
         this.composing.delete(doc);
-        if (this.composing.size) return;
-        for (const file of this.pendingComposition)
-          this.formatter.schedule(file);
-        this.pendingComposition.clear();
       };
       this.registerDomEvent(doc, "compositionend", finish);
       if (doc.defaultView)
         this.registerDomEvent(doc.defaultView, "blur", finish);
     };
-    const documents = new Set<Document>([document]);
+    watchDocument(document);
     this.app.workspace.iterateAllLeaves((leaf) =>
-      documents.add(leaf.view.containerEl.ownerDocument),
+      watchDocument(leaf.view.containerEl.ownerDocument),
     );
-    for (const doc of documents) watchComposition(doc);
     this.registerEvent(
       this.app.workspace.on("window-open", (_workspaceWindow, win) =>
-        watchComposition(win.document),
+        watchDocument(win.document),
       ),
     );
+  }
+
+  private async formatAndSave(view: MarkdownView): Promise<void> {
+    const file = view.file;
+    if (!file) return;
+    const result = await this.formatter.run(file);
+    if (
+      (result === "formatted" || result === "unchanged") &&
+      view.file === file &&
+      this.editors(file).includes(view.editor)
+    ) {
+      try {
+        await view.save();
+      } catch (error) {
+        this.report(error, file.path);
+      }
+    }
   }
 
   private editors(file: TFile): Editor[] {
@@ -159,22 +179,18 @@ export default class MarkdownFormatterPlugin extends Plugin {
     return editors;
   }
 
-  private eligible(file: TFile, manual: boolean): boolean {
+  private eligible(file: TFile): boolean {
     return (
       file.extension.toLowerCase() === "md" &&
       this.app.vault.getAbstractFileByPath(file.path) === file &&
       !isExcluded(file.path, this.settings.excludedPaths) &&
       file.stat.size <= this.settings.maxFileSizeKb * 1024 &&
-      !this.composing.size &&
-      (manual ||
-        this.settings.formatClosedFiles ||
-        this.editors(file).length > 0)
+      !this.composing.size
     );
   }
 
   async saveSettings(): Promise<void> {
     this.revision++;
-    this.formatter.reset();
     await this.saveData(this.settings);
   }
 
@@ -190,7 +206,6 @@ export default class MarkdownFormatterPlugin extends Plugin {
 
   onunload(): void {
     this.formatter?.dispose();
-    this.pendingComposition.clear();
     this.composing.clear();
   }
 }

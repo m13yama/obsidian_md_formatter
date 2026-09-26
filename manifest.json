@@ -1,9 +1,9 @@
 {
   "id": "prettier-md-formatter",
   "name": "Prettier Markdown Formatter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minAppVersion": "1.5.0",
-  "description": "Format Markdown on save with Prettier, configurable options, and Obsidian syntax preservation.",
+  "description": "Format Markdown with Ctrl/Cmd+S using Prettier, configurable options, and Obsidian syntax preservation.",
   "author": "yuki",
   "isDesktopOnly": false
 }

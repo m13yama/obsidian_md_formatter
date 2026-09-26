@@ -26,6 +26,17 @@ test("validates stored settings without accepting unknown keys or invalid numeri
   assert.ok(!("unknown" in settings));
 });
 
+test("retains the existing enable toggle and discards obsolete autosave settings", () => {
+  const settings = loadSettings({
+    formatOnSave: false,
+    formatClosedFiles: true,
+    debounceMs: 700,
+  });
+  assert.equal(settings.formatOnSave, false);
+  assert.ok(!("formatClosedFiles" in settings));
+  assert.ok(!("debounceMs" in settings));
+});
+
 test("rejects invalid JSON, wrong values, parser overrides, and plugin loading", () => {
   for (const json of [
     "{",

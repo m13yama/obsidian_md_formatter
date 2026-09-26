@@ -21,7 +21,7 @@ export class FormatterSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("prettier-md-settings");
     containerEl.createEl("p", {
-      text: "Markdownの保存後にPrettierで整形します。自動保存も対象です。",
+      text: "Ctrl+S（MacはCmd+S）で保存するときにPrettierで整形します。自動保存では整形しません。",
     });
 
     const toggle = (
@@ -40,7 +40,7 @@ export class FormatterSettingTab extends PluginSettingTab {
         });
     };
     const number = (
-      key: "debounceMs" | "maxFileSizeKb" | "printWidth" | "tabWidth",
+      key: "maxFileSizeKb" | "printWidth" | "tabWidth",
       name: string,
       description: string,
       min: number,
@@ -69,20 +69,8 @@ export class FormatterSettingTab extends PluginSettingTab {
 
     toggle(
       "formatOnSave",
-      "保存時にフォーマット",
-      "ONにすると、保存を検知して自動的に整形します。",
-    );
-    number(
-      "debounceMs",
-      "保存後の待機時間 (ms)",
-      "連続する保存をまとめて処理します。",
-      100,
-      10000,
-    );
-    toggle(
-      "formatClosedFiles",
-      "開いていないノートも対象にする",
-      "同期・外部エディタ・他のプラグインによる変更にも反応します。",
+      "Ctrl/Cmd+Sでフォーマット",
+      "ONにすると、Ctrl+S（MacはCmd+S）で現在のノートを整形して保存します。",
     );
     number(
       "maxFileSizeKb",
@@ -191,7 +179,7 @@ export class FormatterSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Vault内の設定ファイル")
       .setDesc(
-        "任意。.prettierrc.jsonなどの相対パス。空欄で無効。JSONのみ対応し、保存のたびに読み込みます。",
+        "任意。.prettierrc.jsonなどの相対パス。空欄で無効。JSONのみ対応し、整形のたびに読み込みます。",
       )
       .addText((control) => {
         control

@@ -2,8 +2,6 @@ import type { Options } from "prettier";
 
 export interface FormatterSettings {
   formatOnSave: boolean;
-  formatClosedFiles: boolean;
-  debounceMs: number;
   maxFileSizeKb: number;
   printWidth: number;
   tabWidth: number;
@@ -19,8 +17,6 @@ export interface FormatterSettings {
 
 export const DEFAULT_SETTINGS: FormatterSettings = {
   formatOnSave: true,
-  formatClosedFiles: false,
-  debounceMs: 700,
   maxFileSizeKb: 1024,
   printWidth: 80,
   tabWidth: 2,
@@ -108,7 +104,6 @@ export function loadSettings(data: unknown): FormatterSettings {
     }
   }
   for (const [key, min, max] of [
-    ["debounceMs", 100, 10000],
     ["maxFileSizeKb", 1, 10240],
     ["printWidth", 1, 1000],
     ["tabWidth", 1, 16],
