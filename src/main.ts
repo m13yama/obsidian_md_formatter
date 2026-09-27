@@ -95,10 +95,13 @@ export default class MarkdownFormatterPlugin extends Plugin {
     );
     const documents = new Set<Document>();
     const watchDocument = (doc: Document) => {
-      if (documents.has(doc)) return;
+      const win = doc.defaultView;
+      if (!win || documents.has(doc)) return;
       documents.add(doc);
+      // Obsidian handles shortcuts on window capture and stops propagation
+      // before document. Listen on the same window to still receive Ctrl/Cmd+S.
       this.registerDomEvent(
-        doc,
+        win,
         "keydown",
         (event) => {
           if (
@@ -132,8 +135,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
         this.composing.delete(doc);
       };
       this.registerDomEvent(doc, "compositionend", finish);
-      if (doc.defaultView)
-        this.registerDomEvent(doc.defaultView, "blur", finish);
+      this.registerDomEvent(win, "blur", finish);
     };
     watchDocument(document);
     this.app.workspace.iterateAllLeaves((leaf) =>

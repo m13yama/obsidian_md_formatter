@@ -25,6 +25,15 @@ const nodeRequire = createRequire(`${process.cwd()}/package.json`);
 
 class TestDocument extends EventTarget {
   defaultView = new EventTarget();
+
+  dispatchEvent(event: Event): boolean {
+    // Model window capture before the document, including stopPropagation().
+    if (event.type === "keydown") {
+      this.defaultView.dispatchEvent(event);
+      if (event.cancelBubble) return !event.defaultPrevented;
+    }
+    return super.dispatchEvent(event);
+  }
 }
 
 class PluginStub {
@@ -53,7 +62,7 @@ class PluginStub {
   }
 }
 
-async function setup() {
+async function setup(stopSavePropagation = false) {
   const doc = new TestDocument();
   const file = { path: "note.md", extension: "md", stat: { size: 10 } };
   const state = {
@@ -113,6 +122,32 @@ async function setup() {
     iterateAllLeaves: (callback: (leaf: { view: MarkdownViewStub }) => void) =>
       callback({ view }),
   });
+  if (stopSavePropagation) {
+    // Obsidian registers its save shortcut on window before loading plugins.
+    const registerSaveShortcut = (target: TestDocument) => {
+      target.defaultView.addEventListener(
+        "keydown",
+        (event) => {
+          const key = event as KeyboardEvent;
+          if (
+            key.key.toLowerCase() === "s" &&
+            (key.ctrlKey || key.metaKey) &&
+            !key.altKey &&
+            !key.shiftKey
+          ) {
+            void view.save();
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        },
+        { capture: true },
+      );
+    };
+    registerSaveShortcut(doc);
+    workspace.on("window-open", (_workspaceWindow, win) =>
+      registerSaveShortcut(win.document),
+    );
+  }
   const obsidian = {
     Plugin: PluginStub,
     MarkdownView: MarkdownViewStub,
@@ -205,6 +240,39 @@ test("Ctrl+S formats an already saved note without needing a file change", async
   unload();
 });
 
+test("Ctrl+S and Cmd+S still format when Obsidian stops propagation at the window", async () => {
+  for (const modifiers of [
+    { ctrlKey: true, metaKey: false },
+    { ctrlKey: false, metaKey: true },
+  ]) {
+    const { doc, plugin, state, keydown, unload } = await setup(true);
+    let documentEvents = 0;
+    doc.addEventListener("keydown", () => documentEvents++);
+    assert.equal(keydown(modifiers).defaultPrevented, true);
+    await settle();
+    assert.equal(documentEvents, 0);
+    assert.equal(state.disk, "# title\n");
+    assert.deepEqual(state.saves, ["#  title\n", "# title\n"]);
+
+    plugin.settings.formatOnSave = false;
+    state.buffer = "#  disabled\n";
+    keydown(modifiers);
+    await settle();
+    assert.equal(state.disk, "#  disabled\n");
+    assert.equal(state.saves.length, 3);
+
+    plugin.settings.formatOnSave = true;
+    plugin.settings.customOptions = "{";
+    state.buffer = "#  invalid config\n";
+    keydown(modifiers);
+    await settle();
+    assert.equal(state.disk, "#  invalid config\n");
+    assert.equal(state.saves.length, 4);
+    assert.equal(state.errors.length, 1);
+    unload();
+  }
+});
+
 test("other keys, extra modifiers, repeats and IME key events do not format", async () => {
   for (const overrides of [
     { key: "a" },
@@ -279,7 +347,7 @@ test("input typed while configuration loads is not overwritten or retried", asyn
 });
 
 test("pop-out shortcuts format only the editor in that window and are removed on unload", async () => {
-  const { workspace, view, state, keydown, unload } = await setup();
+  const { workspace, view, state, keydown, unload } = await setup(true);
   const popout = new TestDocument();
   view.containerEl.ownerDocument = popout;
   workspace.emit("window-open", {}, { document: popout });

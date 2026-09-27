@@ -4,7 +4,7 @@ ObsidianのMarkdownノートを、Ctrl+S（MacはCmd+S）で保存するとき�
 
 ## インストール
 
-[0.2.0 Beta 2のリリースページ](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.2.0)から `prettier-md-formatter-0.2.0-beta.2.zip` をダウンロードし、解凍してできる `prettier-md-formatter` フォルダを、使用するVaultの `.obsidian/plugins/` にコピーします。
+[0.2.1 Beta 3のリリースページ](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.2.1)から `prettier-md-formatter-0.2.1-beta.3.zip` をダウンロードし、解凍してできる `prettier-md-formatter` フォルダを、使用するVaultの `.obsidian/plugins/` にコピーします。
 
 ベータ版としてGitHubのPre-releaseで配布しています。Obsidianのコミュニティプラグイン一覧からのインストールにはまだ対応していません。
 
