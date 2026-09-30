@@ -26,6 +26,75 @@ test("formats headings, lists, and tables with real Prettier", async () => {
   );
 });
 
+test("wraps bare HTTP(S) URLs while keeping surrounding punctuation outside", async () => {
+  const source =
+    "See https://example.com/path?x=1&y=2#section, " +
+    "http://example.org and (https://example.com/wiki/Title_(detail)).\n";
+  const expected =
+    "See <https://example.com/path?x=1&y=2#section>, " +
+    "<http://example.org> and (<https://example.com/wiki/Title_(detail)>).\n";
+  assert.equal(await format(source), expected);
+  assert.equal(await format(expected), expected);
+  assert.equal(
+    await format("HTTPS://example.com\n", { preserveObsidianSyntax: false }),
+    "<HTTPS://example.com>\n",
+  );
+});
+
+test("wraps URLs in headings, lists, quotes and tables with stable layout", async () => {
+  const source =
+    "# https://example.com\n\n" +
+    "- https://example.com\n\n" +
+    "> https://example.com\n\n" +
+    "| Link | Note |\n| --- | --- |\n| https://example.com | test |\n";
+  const expected =
+    "# <https://example.com>\n\n" +
+    "- <https://example.com>\n\n" +
+    "> <https://example.com>\n\n" +
+    "| Link                  | Note |\n" +
+    "| --------------------- | ---- |\n" +
+    "| <https://example.com> | test |\n";
+  assert.equal(await format(source), expected);
+  for (const proseWrap of ["preserve", "always", "never"] as const) {
+    const settings = { proseWrap, printWidth: 25 };
+    const once = await format(source, settings);
+    assert.equal(await format(once, settings), once);
+  }
+});
+
+test("keeps existing links, code, HTML and protected Obsidian URLs intact", async () => {
+  const sources = [
+    "<https://example.com>\n",
+    "[Example](https://example.com)\n",
+    "[https://example.com](https://example.com)\n",
+    "![Image](https://example.com/image.png)\n",
+    "[Example][ref]\n\n[ref]: https://example.com\n",
+    "`https://example.com`\n",
+    "```text\nhttps://example.com\n```\n",
+    "    https://example.com\n",
+    '<a href="https://example.com">Example</a>\n',
+    "<!-- https://example.com -->\n",
+    "---\nurl: https://example.com\n---\n",
+    "[[https://example.com]] ![[https://example.com/image.png]]\n",
+    "==https://example.com== %%https://example.com%%\n",
+    '$https://example.com$ <% "https://example.com" %>\n',
+    "> [!note]\n> https://example.com\n",
+    "www.example.com name@example.com\n",
+  ];
+  for (const source of sources) {
+    assert.equal(await format(source), source, source);
+  }
+});
+
+test("honors prettier-ignore for bare URLs", async () => {
+  const source =
+    "<!-- prettier-ignore -->\nhttps://example.com\n\nhttps://example.org\n";
+  assert.equal(
+    await format(source),
+    "<!-- prettier-ignore -->\nhttps://example.com\n\n<https://example.org>\n",
+  );
+});
+
 test("aligns mixed Japanese, fullwidth Latin, ASCII and halfwidth kana table cells", async () => {
   const source =
     "|項目|左寄せ|中央寄せ|右寄せ|\n|---|:---|:---:|---:|\n|日本語|ＡＢＣ|かな|１００|\n|abc|123|ｶﾅ|100|\n|AあB|Ｚ9|漢字A|9|\n";

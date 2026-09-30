@@ -1,25 +1,31 @@
 # Changelog
 
+## 0.3.0 — Beta 4
+
+- Automatically wrap bare HTTP/HTTPS URLs in angle brackets, including URLs in headings, lists, block quotes, and tables. Existing links, code, protected Obsidian syntax, and elements marked with `prettier-ignore` are excluded from this conversion.
+- Account for the added brackets when aligning tables and wrapping text, and keep repeated formatting stable.
+- Translate the README, changelog, and comments in documentation examples into English.
+
 ## 0.2.1 — Beta 3
 
-- Obsidianの保存ショートカット処理によりCtrl/Cmd+Sのイベントがプラグインに届かず、整形されない問題を修正。メインウィンドウ・別ウィンドウの両方に対応。
+- Fixed an issue where Obsidian's save shortcut handler prevented Ctrl/Cmd+S events from reaching the plugin, so formatting did not run. The fix supports both the main window and pop-out windows.
 
 ## 0.2.0 — Beta 2
 
-- Ctrl+S（MacはCmd+S）で通常の保存に加えて現在のノートをフォーマットし、整形結果も保存する方式に変更。
-- 自動保存、同期、外部変更によるフォーマットを廃止。保存済みのノートもCtrl/Cmd+Sで整形可能。
-- 自動保存向けの待機時間・閉じたノートの整形設定を削除。既存のON/OFF設定と手動フォーマットコマンドは維持。
+- Changed Ctrl+S (Cmd+S on macOS) to format the current note and save the formatted result in addition to performing the normal save.
+- Removed formatting triggered by autosaves, synchronization, and external changes. Already saved notes can also be formatted with Ctrl/Cmd+S.
+- Removed the autosave delay and closed-note formatting settings. Preserved the existing enabled/disabled setting and the manual formatting command.
 
 ## 0.1.0 — Beta 1
 
-初回ベータリリース。GitHub上ではPre-releaseとして公開します。
+Initial beta release, distributed as a GitHub pre-release.
 
-- PrettierによるMarkdownの保存時フォーマット。Obsidianの自動保存にも対応。
-- 日本語の設定画面、カスタムJSON、Vault内のJSON設定ファイル、ファイル別overrides。
-- 全角2幅・半角1幅によるテーブル整形。ハイライトやコメント内の日本語にも対応。
-- コールアウト、Wikiリンク、埋め込み、ハイライト、コメント、数式、テンプレートの保持。
-- YAMLフロントマターの保持、コードブロック整形の切り替え、除外パス、サイズ上限。
-- 保存との競合防止、再保存ループの防止、IME変換中の保留、カーソル・選択・スクロール位置の維持。
-- 手動フォーマットと保存時フォーマットのON/OFFコマンド。
+- Markdown formatting on save with Prettier, including support for Obsidian autosave.
+- A Japanese settings interface, custom JSON options, JSON configuration files within the vault, and per-file overrides.
+- Table formatting that counts fullwidth characters as two columns and halfwidth characters as one, including Japanese text in highlights and comments.
+- Preservation of callouts, wiki links, embeds, highlights, comments, math, and templates.
+- YAML frontmatter preservation, optional code block formatting, path exclusions, and file size limits.
+- Protection against save conflicts and repeated save loops, deferral during IME composition, and preservation of the cursor, selections, and scroll position.
+- Commands for manual formatting and toggling formatting on save.
 
-対象はObsidian 1.5.0以降です。自動テスト・ブラウザ向けビルドを検証済みですが、Obsidian本体およびモバイル端末でのGUI動作確認は未実施です。
+Requires Obsidian 1.5.0 or later. Automated tests and browser builds have been verified, but GUI testing in Obsidian and on mobile devices has not been performed.

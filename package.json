@@ -1,6 +1,6 @@
 {
   "name": "obsidian-md-formatter",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Customizable Prettier formatting with Ctrl/Cmd+S for Obsidian.",
   "license": "MIT",

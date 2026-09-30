@@ -6,11 +6,44 @@ import * as typescript from "prettier/plugins/typescript";
 import * as html from "prettier/plugins/html";
 import * as postcss from "prettier/plugins/postcss";
 import * as yaml from "prettier/plugins/yaml";
-import type { Options } from "prettier";
+import type { Options, Plugin } from "prettier";
 import type { FormatterSettings } from "./settings";
 import { protectObsidian } from "./protection";
 
-const plugins = [markdown, babel, estree, typescript, html, postcss, yaml];
+const markdownWithAutolinks: Plugin = {
+  ...markdown,
+  printers: {
+    mdast: {
+      ...markdown.printers.mdast,
+      print(path, options, print, args) {
+        const node = path.node;
+        // Only wrap parsed bare HTTP(S) links. Printing the brackets here lets
+        // Prettier account for their width in tables and wrapped paragraphs.
+        if (
+          node.type === "link" &&
+          /^https?:\/\//i.test(node.url) &&
+          options.originalText.slice(
+            options.locStart(node),
+            options.locEnd(node),
+          ) === node.url
+        ) {
+          return `<${node.url}>`;
+        }
+        return markdown.printers.mdast.print(path, options, print, args);
+      },
+    },
+  },
+};
+
+const plugins = [
+  markdownWithAutolinks,
+  babel,
+  estree,
+  typescript,
+  html,
+  postcss,
+  yaml,
+];
 
 export async function formatMarkdown(
   source: string,

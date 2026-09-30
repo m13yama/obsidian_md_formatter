@@ -1,12 +1,14 @@
 # Prettier Markdown Formatter
 
-ObsidianのMarkdownノートを、Ctrl+S（MacはCmd+S）で保存するときにPrettierで整形するプラグインです。自動保存では整形しません。日本語の設定画面、カスタムJSON、Vault内の設定ファイルに対応しています。
+An Obsidian plugin that formats Markdown notes with Prettier when you save with Ctrl+S (Cmd+S on macOS). It does not format on autosave. It supports a settings interface, custom JSON options, and configuration files within your vault.
 
-## インストール
+The plugin's settings and commands are currently displayed in Japanese. This guide uses English translations of their labels.
 
-[0.2.1 Beta 3のリリースページ](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.2.1)から `prettier-md-formatter-0.2.1-beta.3.zip` をダウンロードし、解凍してできる `prettier-md-formatter` フォルダを、使用するVaultの `.obsidian/plugins/` にコピーします。
+## Installation
 
-ベータ版としてGitHubのPre-releaseで配布しています。Obsidianのコミュニティプラグイン一覧からのインストールにはまだ対応していません。
+Download `prettier-md-formatter-0.3.0-beta.4.zip` from the [0.3.0 Beta 4 release page](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.3.0), extract it, and copy the `prettier-md-formatter` folder into your vault's `.obsidian/plugins/` directory.
+
+Beta versions are distributed as GitHub pre-releases. Installation through Obsidian's community plugin directory is not yet supported.
 
 ```text
 <Vault>/.obsidian/plugins/prettier-md-formatter/
@@ -15,66 +17,74 @@ ObsidianのMarkdownノートを、Ctrl+S（MacはCmd+S）で保存するとき�
 └── styles.css
 ```
 
-Obsidianを再起動するか再読み込みし、設定 → コミュニティプラグインで **Prettier Markdown Formatter** を有効にしてください。Obsidian 1.5.0以降を対象としています。
+Restart or reload Obsidian, then enable **Prettier Markdown Formatter** under Settings → Community plugins. Obsidian 1.5.0 or later is required.
 
-ソースからビルドする場合はNode.js 22以降を使います。
+To build from source, use Node.js 22 or later:
 
 ```sh
 npm ci
 npm run build
 ```
 
-`main.js` と配布用の `dist/prettier-md-formatter/` が生成されます。Prettier本体と対応するパーサーは同梱されるため、利用時のNode.jsやネット接続は不要です。モバイルでも使用できる構成ですが、実機での確認はまだ行っていません。
+The build generates `main.js` and the distribution folder `dist/prettier-md-formatter/`. Prettier and the supported parsers are bundled, so neither Node.js nor a network connection is required to use the plugin. The plugin is built to support mobile devices, but it has not yet been tested on them.
 
-ソースからビルドした場合は、生成された `dist/prettier-md-formatter` フォルダをVaultの `.obsidian/plugins/` にコピーしてください。
+After building from source, copy the generated `dist/prettier-md-formatter` folder into your vault's `.obsidian/plugins/` directory.
 
-## Ctrl/Cmd+Sでの動作
+## Ctrl/Cmd+S behavior
 
-初期状態でCtrl/Cmd+Sによるフォーマットが有効です。ノートの編集中にCtrl+S（MacはCmd+S）を押すと、通常の保存に加えて現在の本文を整形し、その結果も保存します。すでに保存済みで未変更のノートも対象になります。Obsidianの自動保存、同期、外部エディタ・他プラグインによる変更では整形しません。
+Formatting with Ctrl/Cmd+S is enabled by default. While editing a note, press Ctrl+S (Cmd+S on macOS) to perform the normal save, format the current text, and save the formatted result. This also works for notes that have already been saved and have no pending changes. Obsidian autosaves, synchronization, and changes from external editors or other plugins do not trigger formatting.
 
-- ソースモードまたはライブプレビューで、エディタにフォーカスがあるMarkdownノートが対象です。別ウィンドウでも使用できます。
-- Editor APIで差分を適用し、カーソル・複数選択・スクロール位置を維持します。
-- 整形中に本文や設定が変わった場合、その結果は適用しません。もう一度Ctrl/Cmd+Sを押すと、最新の内容を整形します。
-- 日本語などのIME変換中は整形をスキップします。変換確定後にCtrl/Cmd+Sを押してください。
-- 設定ファイルが存在しない場合やJSONが不正な場合は通知し、整形をスキップします。通常の保存はそのまま動作します。
+- Formatting applies to Markdown notes in Source mode or Live Preview when the editor has focus. Pop-out windows are also supported.
+- Changes are applied through the Editor API, preserving the cursor, multiple selections, and scroll position.
+- If the text or settings change during formatting, the result is discarded. Press Ctrl/Cmd+S again to format the latest content.
+- Formatting is skipped during IME composition, such as when entering Japanese text. Finish composing, then press Ctrl/Cmd+S.
+- If the configuration file is missing or the JSON is invalid, the plugin displays a notice and skips formatting. Normal saving still works.
 
-「Ctrl/Cmd+Sでのフォーマットを切り替え」コマンドでON/OFFを変更できます。従来のON/OFF設定は引き継ぎます。「現在のノートをフォーマット」コマンドも引き続き使用でき、Ctrl/Cmd+Sによる整形がOFFの場合でも実行できます。コマンドにはObsidianのホットキー設定から任意のキーを割り当てられます。手動整形にも除外設定・サイズ上限が適用されます。
+Use the "Toggle formatting with Ctrl/Cmd+S" command to enable or disable this behavior. The existing enabled/disabled setting is retained when upgrading. The "Format current note" command remains available even when formatting with Ctrl/Cmd+S is disabled. You can assign shortcuts to these commands in Obsidian's hotkey settings. Exclusions and file size limits also apply to manual formatting.
 
-## カスタマイズ
+## Customization
 
-| 設定                     | 初期値         | 動作                                   |
-| ------------------------ | -------------- | -------------------------------------- |
-| Ctrl/Cmd+Sでフォーマット | ON             | Ctrl/Cmd+Sで現在のノートを整形して保存 |
-| ファイルサイズの上限     | 1024KB         | 大きなノートをスキップ                 |
-| 折り返し幅               | 80             | Prettierの `printWidth`                |
-| インデント幅             | 2              | Prettierの `tabWidth`                  |
-| タブでインデント         | OFF            | Prettierの `useTabs`                   |
-| 本文の改行               | 元の改行を維持 | `preserve` / `always` / `never`        |
-| コードブロックも整形     | OFF            | 対応言語の埋め込みコードを整形         |
-| プロパティを保持         | ON             | YAMLフロントマターをそのまま保持       |
-| Obsidian記法を保護       | ON             | 下記の固有記法を保持                   |
+| Setting                 | Default                       | Behavior                                         |
+| ----------------------- | ----------------------------- | ------------------------------------------------ |
+| Format with Ctrl/Cmd+S  | ON                            | Format and save the current note with Ctrl/Cmd+S |
+| Maximum file size       | 1024 KB                       | Skip notes larger than this limit                |
+| Print width             | 80                            | Prettier's `printWidth`                          |
+| Indentation width       | 2                             | Prettier's `tabWidth`                            |
+| Indent with tabs        | OFF                           | Prettier's `useTabs`                             |
+| Prose wrapping          | Preserve existing line breaks | `preserve` / `always` / `never`                  |
+| Format code blocks      | OFF                           | Format embedded code in supported languages      |
+| Preserve properties     | ON                            | Keep YAML frontmatter unchanged                  |
+| Protect Obsidian syntax | ON                            | Preserve the syntax described below              |
 
-Prettierが認識するWikiリンク・埋め込みに加えて、コールアウト全体、ハイライト、`%%コメント%%`、数式、`<% ... %>` テンプレートを保持します。コールアウト内部は整形しません。任意のサードパーティプラグインの独自記法すべてを保証するものではありません。
+In addition to the wiki links and embeds recognized by Prettier, the plugin preserves entire callouts, highlights, `%%comments%%`, math, and `<% ... %>` templates. Content inside callouts is not formatted. Support for every custom syntax used by third-party plugins is not guaranteed.
 
-「コードブロックも整形」でJavaScript / JSX、TypeScript / TSX、JSON / JSON5 / JSONC、YAML、HTML / Vue、CSS / SCSS / Lessに対応します。DataviewやMermaidなど、同梱パーサーのないコードブロックは内容を保持します。YAMLフロントマターを整形する場合は「プロパティを保持」をOFFにし、「コードブロックも整形」をONにしてください。
+"Format code blocks" supports JavaScript / JSX, TypeScript / TSX, JSON / JSON5 / JSONC, YAML, HTML / Vue, and CSS / SCSS / Less. Blocks without a bundled parser, such as Dataview and Mermaid, retain their contents. To format YAML frontmatter, turn off "Preserve properties" and turn on "Format code blocks."
 
-### テーブルの文字幅
+### Angle brackets around URLs
 
-テーブルは日本語や全角英数字を **2幅**、半角英数字・半角カナ・スペースを **1幅** として、列の幅と余白を揃えます。追加設定は不要で、フォーマット時に適用されます。左寄せ・中央寄せ・右寄せの指定も保持します。
+Bare HTTP / HTTPS URLs in text are enclosed in angle brackets during formatting: `https://example.com` becomes `<https://example.com>`. This also applies to URLs in headings, lists, block quotes, and tables. No additional configuration is required.
+
+This conversion leaves existing links, images, code, HTML attributes, preserved properties, and protected Obsidian syntax intact. Elements excluded with `<!-- prettier-ignore -->` are also skipped.
+
+### Character widths in tables
+
+Table columns and padding are aligned by counting Japanese characters and fullwidth letters and digits as **two columns**, and ASCII characters, halfwidth katakana, and spaces as **one column**. This happens automatically during formatting. Left, center, and right alignment are preserved.
+
+The example below includes `りんご` (Japanese for "apple") and fullwidth letters and digits to demonstrate their widths:
 
 ```md
-| 名前   |   価格 |
+| Item   |  Price |
 | ------ | -----: |
 | りんご |    100 |
 | Apple  |     80 |
 | ＡＢＣ | １００ |
 ```
 
-`==日本語==`、`%%コメント%%`、数式などを保護する場合も元の文字幅を保持します。列幅はMarkdownソースの記号も含めて計算します。エディタ上での見た目は表示フォントの字幅にも依存します。
+Protected content, including highlights, `%%comments%%`, and math, retains its original display width. Column widths include the Markdown syntax characters in the source. Visual alignment in the editor also depends on the character widths of the selected font.
 
-### カスタムJSON
+### Custom JSON
 
-設定画面の「Prettierオプション (JSON)」に入力して「JSONを検証して保存」を押します。
+Enter options in the "Prettier options (JSON)" field in the plugin settings, then click "Validate and save JSON."
 
 ```json
 {
@@ -86,19 +96,19 @@ Prettierが認識するWikiリンク・埋め込みに加えて、コールア�
 }
 ```
 
-対応オプション:
+Supported options:
 
-- `printWidth` (1〜1000)、`tabWidth` (1〜16)、`useTabs`、`proseWrap`
-- `endOfLine`、`embeddedLanguageFormatting`
-- `semi`、`singleQuote`、`jsxSingleQuote`、`trailingComma`
-- `bracketSpacing`、`bracketSameLine`、`arrowParens`、`quoteProps`
-- `htmlWhitespaceSensitivity`、`singleAttributePerLine`、`objectWrap`
+- `printWidth` (1–1000), `tabWidth` (1–16), `useTabs`, `proseWrap`
+- `endOfLine`, `embeddedLanguageFormatting`
+- `semi`, `singleQuote`, `jsxSingleQuote`, `trailingComma`
+- `bracketSpacing`, `bracketSameLine`, `arrowParens`, `quoteProps`
+- `htmlWhitespaceSensitivity`, `singleAttributePerLine`, `objectWrap`
 
-コード向けの設定は対応言語のコードブロックに適用されます。`parser` はMarkdownに固定しています。外部Prettierプラグイン、JavaScript設定ファイル、任意コードの実行には対応していません。箇条書きの記号などPrettierにオプションのないルールはPrettierの出力に従います。
+Code-specific options apply to code blocks in supported languages. The `parser` is fixed to Markdown. External Prettier plugins, JavaScript configuration files, and arbitrary code execution are not supported. Rules without a Prettier option, such as list markers, follow Prettier's output.
 
-### Vault内の設定ファイル
+### Configuration files in your vault
 
-Vaultのルートに `.prettierrc.json` を作り、プラグイン設定の「Vault内の設定ファイル」に `.prettierrc.json` と指定すると、整形のたびに読み込みます。自動探索は行わず、指定したJSONファイルだけを使用します。
+Create `.prettierrc.json` at the root of your vault and enter `.prettierrc.json` in the plugin's "Configuration file in vault" setting. The file is read each time formatting runs. Configuration files are not discovered automatically; only the specified JSON file is used.
 
 ```json
 {
@@ -117,47 +127,47 @@ Vaultのルートに `.prettierrc.json` を作り、プラグイン設定の「V
 }
 ```
 
-優先順位は **基本設定 → カスタムJSON → 設定ファイル → 一致するoverrides** です。複数のoverridesが一致する場合は後の設定が優先されます。`files` / `excludeFiles` は文字列または文字列配列を受け付けます。
+Options are applied in this order: **basic settings → custom JSON → configuration file → matching overrides**. Later values take precedence. If multiple overrides match, later overrides win. Both `files` and `excludeFiles` accept a string or an array of strings.
 
-### 除外パス
+### Excluded paths
 
-設定画面に1行ずつ指定します。
+Enter one pattern per line in the plugin settings:
 
 ```text
-# テンプレートと下書きを除外
+# Exclude templates and drafts
 Templates/**
 **/draft-*.md
 Archive/
 ```
 
-除外設定とoverridesはVaultからの相対パスを対象にし、大文字・小文字を区別します。`*` は `/` 以外、`**` は階層をまたぐ任意の文字列、`?` は `/` 以外の1文字です。`**/` は0階層にも一致します。末尾 `/` は配下すべてを対象にします。`#` で始まる行はコメントです。波括弧展開、文字クラス、否定パターンは未対応です。`.prettierignore` と `.editorconfig` は読み込みません。
+Exclusion and override patterns match paths relative to the vault and are case-sensitive. `*` matches any characters except `/`, `**` matches across directory levels, and `?` matches one character other than `/`. `**/` also matches zero directory levels. A trailing `/` includes all contents below that directory. Lines beginning with `#` are comments. Brace expansion, character classes, and negated patterns are not supported. The plugin does not read `.prettierignore` or `.editorconfig`.
 
-Markdown内の `<!-- prettier-ignore -->` で次の要素を整形対象から外すこともできます。
+You can also place `<!-- prettier-ignore -->` in Markdown to exclude the next element from formatting.
 
-## 開発と確認
+## Development and verification
 
 ```sh
-npm run dev          # ファイル変更を監視してmain.jsを更新
-npm test             # Prettier実動作・ショートカット・編集競合・設定・編集差分のテスト
+npm run dev          # Watch for file changes and rebuild main.js
+npm test             # Test Prettier, shortcuts, edit conflicts, settings, and diffs
 npm run typecheck
 npm run build
 npm run format:check
 ```
 
-ObsidianのGUI上での確認項目:
+Manual checks in Obsidian:
 
-1. テストVaultにインストールし、ノートに `#  Title` を入力して自動保存されてもそのままであることを確認する。
-2. Ctrl+S（MacはCmd+S）を押すと `# Title` に整形され、保存されることを確認する。保存済みのノートや別ウィンドウでも確認する。
-3. 整形中も入力し、入力した内容が失われないことを確認する。
-4. 日本語IME変換中および変換確定後の自動保存で整形されず、その後Ctrl/Cmd+Sを押すと整形されることを確認する。
-5. 設定変更、除外パス、手動コマンド、元に戻す操作、複数ペインを確認する。
-6. プラグインまたはCtrl/Cmd+Sによる整形を無効にした後、Ctrl/Cmd+Sで通常の保存だけが行われることを確認する。
+1. Install the plugin in a test vault, type `#  Title` in a note, and confirm that autosave leaves it unchanged.
+2. Press Ctrl+S (Cmd+S on macOS) and confirm that the note is formatted to `# Title` and saved. Also check already saved notes and pop-out windows.
+3. Continue typing while formatting runs and confirm that no input is lost.
+4. Confirm that formatting does not run during Japanese IME composition or on autosave after composition ends, and that pressing Ctrl/Cmd+S afterward formats the note.
+5. Check settings changes, exclusions, manual commands, undo, and multiple panes.
+6. Disable the plugin or formatting with Ctrl/Cmd+S and confirm that Ctrl/Cmd+S only performs a normal save.
 
-自動テスト・型チェック・配布ビルドは実行できますが、この開発環境ではObsidian実機のGUI確認は未実施です。
+Automated tests, type checks, and distribution builds can be run in this development environment. GUI testing in Obsidian itself has not been performed here.
 
-## 参照
+## References
 
 - [Prettier standalone](https://prettier.io/docs/browser)
-- [Prettierのオプション](https://prettier.io/docs/options)
+- [Prettier options](https://prettier.io/docs/options)
 - [Obsidian Vault API](https://docs.obsidian.md/Plugins/Vault)
 - [Obsidian Editor API](https://docs.obsidian.md/Plugins/Editor/Editor)
