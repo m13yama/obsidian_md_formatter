@@ -6,7 +6,7 @@ The plugin's settings and commands are currently displayed in Japanese. This gui
 
 ## Installation
 
-Download `prettier-md-formatter-0.3.0-beta.4.zip` from the [0.3.0 Beta 4 release page](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.3.0), extract it, and copy the `prettier-md-formatter` folder into your vault's `.obsidian/plugins/` directory.
+Download `prettier-md-formatter-0.4.0-beta.5.zip` from the [0.4.0 Beta 5 release page](https://github.com/m13yama/obsidian_md_formatter/releases/tag/0.4.0), extract it, and copy the `prettier-md-formatter` folder into your vault's `.obsidian/plugins/` directory.
 
 Beta versions are distributed as GitHub pre-releases. Installation through Obsidian's community plugin directory is not yet supported.
 
@@ -56,7 +56,9 @@ Use the "Toggle formatting with Ctrl/Cmd+S" command to enable or disable this be
 | Preserve properties     | ON                            | Keep YAML frontmatter unchanged                  |
 | Protect Obsidian syntax | ON                            | Preserve the syntax described below              |
 
-In addition to the wiki links and embeds recognized by Prettier, the plugin preserves entire callouts, highlights, `%%comments%%`, math, and `<% ... %>` templates. Content inside callouts is not formatted. Support for every custom syntax used by third-party plugins is not guaranteed.
+In addition to the wiki links and embeds recognized by Prettier, the plugin preserves callout headers, nesting, and separators, highlights, `%%comments%%`, math, and `<% ... %>` templates. Support for every custom syntax used by third-party plugins is not guaranteed.
+
+Callout body paragraphs, headings, lists, URLs, and Markdown tables are formatted. This includes nested callouts, callouts inside lists, and captionless tables in Figures and Tables `[!grid]` layouts. Titles, captions, options, and folding markers remain on their original header lines. Body text follows the prose wrapping setting, with quotation prefixes included in the print width. Existing blank quotation lines and grid separators are retained. Code blocks follow the "Format code blocks" setting, and elements marked with `<!-- prettier-ignore -->` are left unchanged. Placing that comment before a callout skips its entire contents.
 
 "Format code blocks" supports JavaScript / JSX, TypeScript / TSX, JSON / JSON5 / JSONC, YAML, HTML / Vue, and CSS / SCSS / Less. Blocks without a bundled parser, such as Dataview and Mermaid, retain their contents. To format YAML frontmatter, turn off "Preserve properties" and turn on "Format code blocks."
 

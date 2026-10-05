@@ -9,6 +9,7 @@ import * as yaml from "prettier/plugins/yaml";
 import type { Options, Plugin } from "prettier";
 import type { FormatterSettings } from "./settings";
 import { protectObsidian } from "./protection";
+import { formatCalloutContent } from "./callout-content";
 
 const markdownWithAutolinks: Plugin = {
   ...markdown,
@@ -63,6 +64,22 @@ export async function formatMarkdown(
       frontmatter = match[1]! + (match[2] || "\n");
       body = body.slice(match[0].length);
     }
+  }
+  if (settings.preserveObsidianSyntax) {
+    body = await formatCalloutContent(
+      body,
+      (block, prefixWidth) =>
+        formatMarkdown(
+          block,
+          { ...settings, preserveFrontmatter: false },
+          {
+            ...options,
+            printWidth: Math.max(1, (options.printWidth ?? 80) - prefixWidth),
+            endOfLine: "lf",
+          },
+        ),
+      options.embeddedLanguageFormatting !== "off",
+    );
   }
   const protectedBody = settings.preserveObsidianSyntax
     ? protectObsidian(body)

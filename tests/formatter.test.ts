@@ -78,7 +78,7 @@ test("keeps existing links, code, HTML and protected Obsidian URLs intact", asyn
     "[[https://example.com]] ![[https://example.com/image.png]]\n",
     "==https://example.com== %%https://example.com%%\n",
     '$https://example.com$ <% "https://example.com" %>\n',
-    "> [!note]\n> https://example.com\n",
+    "> [!note] https://example.com\n",
     "www.example.com name@example.com\n",
   ];
   for (const source of sources) {
@@ -179,16 +179,238 @@ test("preserves properties including BOM and quoted Wiki links", async () => {
   );
 });
 
-test("preserves whole callouts under all wrapping modes, including nesting", async () => {
+test("formats callout prose without merging or wrapping the title", async () => {
+  const header = "> [!note]+ Custom  title that must stay on one line\n";
+  const source = header + "> one  two three four\n> five six\n";
+  const bodies = {
+    preserve: "> one two three four\n> five six\n",
+    always: "> one two\n> three four\n> five six\n",
+    never: "> one two three four five six\n",
+  };
+  for (const proseWrap of ["preserve", "always", "never"] as const) {
+    const settings = { proseWrap, printWidth: 14 };
+    const expected = header + bodies[proseWrap];
+    assert.equal(await format(source, settings), expected);
+    assert.equal(await format(expected, settings), expected);
+  }
+});
+
+test("formats headings and lists while preserving nested callouts and separators", async () => {
+  const source =
+    "> [!warning]- 折りたたみ\n> #  Heading\n>\n> *   one\n> *   two\n" +
+    ">\n>\n> > [!tip|custom=value]+ Nested  title\n> > Body  text.\n" +
+    "\n1. First\n\n   > [!tip] Title\n   > Body  text.\n\n2. Second\n";
+  const expected =
+    "> [!warning]- 折りたたみ\n> # Heading\n>\n> - one\n> - two\n" +
+    ">\n>\n> > [!tip|custom=value]+ Nested  title\n> > Body text.\n" +
+    "\n1. First\n\n   > [!tip] Title\n   > Body text.\n\n2. Second\n";
+  for (const proseWrap of ["preserve", "always", "never"] as const) {
+    const settings = { proseWrap, printWidth: 20 };
+    assert.equal(await format(source, settings), expected);
+    assert.equal(await format(expected, settings), expected);
+  }
+});
+
+test("formats standalone callout tables and prose while preserving captions", async () => {
+  for (const kind of ["table|caption=bottom", "note"] as const) {
+    const header = `> [!${kind}]- Caption  **with spaces**\n`;
+    const prose = ">\n> Body  with spacing.\n> Next line.\n";
+    const source = header + "> |a|b|\n> |-|-:|\n> |one|2|\n" + prose;
+    const bodies = {
+      preserve: "> Body with spacing.\n> Next line.\n",
+      always: "> Body with\n> spacing. Next\n> line.\n",
+      never: "> Body with spacing. Next line.\n",
+    };
+    for (const proseWrap of ["preserve", "always", "never"] as const) {
+      const settings = { proseWrap, printWidth: 15 };
+      const expected =
+        header +
+        "> | a   |   b |\n> | --- | --: |\n> | one |   2 |\n>\n" +
+        bodies[proseWrap];
+      assert.equal(await format(source, settings), expected);
+      assert.equal(await format(expected, settings), expected);
+    }
+  }
+});
+
+test("formats callout URLs and preserves inline Obsidian syntax", async () => {
+  const header = "> [!note] ==Title== https://example.org\n";
+  const source =
+    header +
+    "> See https://example.com\n> ==日本語== $x_i + y_i$ [[Note|表示名]] ![[image.png|300]]\n";
+  const expected =
+    header +
+    "> See <https://example.com>\n> ==日本語== $x_i + y_i$ [[Note|表示名]] ![[image.png|300]]\n";
+  assert.equal(await format(source), expected);
+  assert.equal(await format(expected), expected);
+});
+
+test("honors code formatting settings inside nested callouts", async () => {
+  const header = "> [!grid]\n> > [!figure|width=300] Code\n";
+  const source = header + "> > ```js\n> > const x={a:1}\n> > ```\n";
+  assert.equal(await format(source), source);
+  const settings = { formatCodeBlocks: true, customOptions: '{"semi":false}' };
+  const expected = header + "> > ```js\n> > const x = { a: 1 }\n> > ```\n";
+  assert.equal(await format(source, settings), expected);
+  assert.equal(await format(expected, settings), expected);
+});
+
+test("keeps callout body indentation aligned when formatting enclosing lists", async () => {
   const sources = [
-    "> [!note]+ Custom title\n> Body  **with spaces**.\n>\n> -  item\n",
-    "> [!warning]- 折りたたみ\n> 内容\n> > [!tip] Nested\n> > body\n",
-    "1. First\n\n   > [!tip] Title\n   > body\n\n2. Second\n",
+    "> [!note]\n> -   first\n>     next\n>     > [!tip] Nested\n>     > body  text\n>     > next line\n",
+    "> [!note]\n> - > [!tip] Nested\n>   > body  text\n>   > next line\n",
+    "- > [!tip] Nested\n  > body  text\n  > next line\n",
+  ];
+  const expected = [
+    "> [!note]\n> - first next\n>   > [!tip] Nested\n>   > body text next line\n",
+    "> [!note]\n> - > [!tip] Nested\n>   > body text next line\n",
+    "- > [!tip] Nested\n  > body text next line\n",
+  ];
+  const settings = { proseWrap: "never" as const };
+  for (const [index, source] of sources.entries()) {
+    assert.equal(await format(source, settings), expected[index]);
+    assert.equal(await format(expected[index]!, settings), expected[index]);
+  }
+});
+
+test("preserves quoted multiline extensions between formatted paragraphs", async () => {
+  for (const block of [
+    "$$\n> x  +  y\n> $$",
+    "%%\n> private  **text**\n> %%",
+    '<%*\n> const t = "[[x]]";\n> tR += t;\n> %>',
+  ]) {
+    const source = `> [!note]\n> Before  text\n> ${block}\n> After  text\n`;
+    const expected = `> [!note]\n> Before text\n> ${block}\n> After text\n`;
+    for (const proseWrap of ["preserve", "always", "never"] as const) {
+      const settings = { proseWrap, printWidth: 20 };
+      assert.equal(await format(source, settings), expected);
+      assert.equal(await format(expected, settings), expected);
+    }
+  }
+});
+
+test("moves protected multiline content with its enclosing list and callout", async () => {
+  const source =
+    "> [!note]\n> -   first\n>     > [!tip]\n>     > $$\n>     > x + y\n>     > $$\n";
+  const expected =
+    "> [!note]\n> - first\n>   > [!tip]\n>   > $$\n>   > x + y\n>   > $$\n";
+  assert.equal(await format(source), expected);
+  assert.equal(await format(expected), expected);
+});
+
+test("keeps CRLF when wrapping callout prose onto new quoted lines", async () => {
+  const source = "> [!note] Long  title\r\n> one two three four five six\r\n";
+  const expected =
+    "> [!note] Long  title\r\n> one two\r\n> three four\r\n> five six\r\n";
+  const settings = {
+    proseWrap: "always" as const,
+    printWidth: 14,
+    customOptions: '{"endOfLine":"crlf"}',
+  };
+  assert.equal(await format(source, settings), expected);
+  assert.equal(await format(expected, settings), expected);
+});
+
+test("honors prettier-ignore for prose and enclosing callouts", async () => {
+  const header = "> [!note] Title\n";
+  const ignored = "> <!-- prettier-ignore -->\n> one  two\n> three four\n";
+  const source = header + ignored + ">\n> five  six\n> seven eight\n";
+  const settings = { proseWrap: "never" as const };
+  const expected = header + ignored + ">\n> five six seven eight\n";
+  assert.equal(await format(source, settings), expected);
+  assert.equal(await format(expected, settings), expected);
+  const ignoredCallout = "<!-- prettier-ignore -->\n" + source;
+  assert.equal(await format(ignoredCallout, settings), ignoredCallout);
+});
+
+test("formats captionless and nested tables in a Figures and Tables grid", async () => {
+  const header = "> [!grid|cols=2 lgap=16 vgap=24]\n";
+  const image =
+    ">\n> > [!figure|span=2] Apparatus\n> > ![[apparatus.png|300]]\n>\n";
+  const caption = "> > [!table|caption=bottom] Measurement  conditions\n";
+  const source =
+    header +
+    "> |Item|Value|\n> |---|---:|\n> |日本語|100|\n" +
+    image +
+    caption +
+    "> > |a|b|\n> > |-|-|\n> > |1|2|\n\n#  Outside\n";
+  const expected =
+    header +
+    "> | Item   | Value |\n> | ------ | ----: |\n> | 日本語 |   100 |\n" +
+    image +
+    caption +
+    "> > | a   | b   |\n> > | --- | --- |\n> > | 1   | 2   |\n\n# Outside\n";
+  for (const proseWrap of ["preserve", "always", "never"] as const) {
+    const settings = { proseWrap, printWidth: 20 };
+    assert.equal(await format(source, settings), expected);
+    assert.equal(await format(expected, settings), expected);
+  }
+});
+
+test("aligns protected Japanese text and URLs inside grid tables", async () => {
+  const source =
+    "> [!grid]\n> > [!table] Results\n" +
+    "> > |名前|値|\n> > |---|---:|\n" +
+    "> > |==日本語==|100|\n> > |$日本語$|9|\n";
+  const expected =
+    "> [!grid]\n> > [!table] Results\n" +
+    "> > | 名前       |  値 |\n> > | ---------- | --: |\n" +
+    "> > | ==日本語== | 100 |\n> > | $日本語$   |   9 |\n";
+  assert.equal(await format(source), expected);
+  assert.equal(await format(expected), expected);
+
+  const table =
+    "| Link | Note |\n| --- | --- |\n" +
+    "| https://example.com | [[Note\\|Alias]] |\n";
+  const quote = (text: string) => text.trimEnd().replace(/^/gm, "> > ") + "\n";
+  const header = "> [!grid]\n> > [!table]\n";
+  // Callout cells use the same URL conversion and column widths as ordinary tables.
+  const expectedLinks = header + quote(await format(table));
+  assert.equal(await format(header + quote(table)), expectedLinks);
+  assert.equal(await format(expectedLinks), expectedLinks);
+});
+
+test("preserves quotation prefixes, list indentation and CRLF within callouts", async () => {
+  const source =
+    "1. First\n\n   > [!grid]\r\n   >>[!table]\r\n" +
+    "   >>a|b\r\n   > > -|-\r\n   >> 1|2\r\n\n2. Second\n";
+  const expected =
+    "1. First\n\n   > [!grid]\r\n   >>[!table]\r\n" +
+    "   >>| a   | b   |\r\n   > > | --- | --- |\r\n   >> | 1   | 2   |\r\n\n2. Second\n";
+  assert.equal(await format(source), expected);
+  assert.equal(await format(expected), expected);
+});
+
+test("keeps table examples in fenced code and protected blocks unchanged", async () => {
+  const table = "> |a|b|\n> |-|-|\n> |1|2|\n";
+  for (const [open, close] of [
+    ["```markdown", "```"],
+    ["~~~text", "~~~"],
+    ["%%", "%%"],
+    ["<%*", "%>"],
+    ["$$", "$$"],
+    ["<!--", "-->"],
+  ]) {
+    const source = `> [!grid]\n> ${open}\n${table}> ${close}\n`;
+    assert.equal(await format(source), source);
+  }
+  const example = "```markdown\n> [!table]\n" + table + "```\n";
+  assert.equal(await format(example), example);
+});
+
+test("honors prettier-ignore on tables, nested callouts and entire grids", async () => {
+  const table = "> |a|b|\n> |-|-|\n> |1|2|\n";
+  const sources = [
+    "<!-- prettier-ignore -->\n> [!grid]\n" + table,
+    "> [!grid]\n> <!-- prettier-ignore -->\n" + table,
+    "> [!grid]\n> <!-- prettier-ignore -->\n> > [!table]\n" +
+      table.replace(/^> /gm, "> > "),
+    "> [!grid]\n> <!-- prettier-ignore-start -->\n>\n" +
+      table +
+      ">\n> <!-- prettier-ignore-end -->\n",
   ];
   for (const source of sources) {
-    for (const proseWrap of ["preserve", "always", "never"] as const) {
-      assert.equal(await format(source, { proseWrap, printWidth: 20 }), source);
-    }
+    assert.equal(await format(source), source);
   }
 });
 

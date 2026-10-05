@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 — Beta 5
+
+- Format callout body paragraphs, headings, lists, URLs, and tables while preserving title lines, options, folding markers, nesting, and separators. This includes nested and captionless tables in Figures and Tables grids, with Japanese column alignment retained.
+- Apply prose wrapping and optional code formatting inside callouts. Keep titles separate from body text in every wrapping mode, account for quotation prefixes in the print width, and honor `prettier-ignore` for body elements and enclosing callouts.
+- Keep callout bodies and protected multiline content aligned when formatting enclosing lists, and preserve CRLF without duplicating carriage returns.
+
 ## 0.3.0 — Beta 4
 
 - Automatically wrap bare HTTP/HTTPS URLs in angle brackets, including URLs in headings, lists, block quotes, and tables. Existing links, code, protected Obsidian syntax, and elements marked with `prettier-ignore` are excluded from this conversion.

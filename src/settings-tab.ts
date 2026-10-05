@@ -120,7 +120,7 @@ export class FormatterSettingTab extends PluginSettingTab {
     toggle(
       "preserveObsidianSyntax",
       "Obsidian記法を保護",
-      "コールアウト全体・Wikiリンク・埋め込み・ハイライト・コメント・数式・テンプレートを保持します。",
+      "コールアウトのタイトル・入れ子・区切りとWikiリンク・埋め込み・ハイライト・コメント・数式・テンプレートを保持します。コールアウト内の本文・リスト・テーブルなどは整形します。",
     );
     new Setting(containerEl)
       .setName("除外パス")

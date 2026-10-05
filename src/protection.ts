@@ -2,7 +2,10 @@
 import { util } from "prettier";
 
 /** Mask Obsidian extensions before Prettier sees them, then restore verbatim. */
-export function protectObsidian(source: string): {
+export function protectObsidian(
+  source: string,
+  preserveCallouts = true,
+): {
   text: string;
   restore: (text: string) => string;
 } {
@@ -18,8 +21,8 @@ export function protectObsidian(source: string): {
     }
     throw new Error("Obsidian記法の保護用マーカーを確保できませんでした。");
   };
-  const entries: { token: string; value: string }[] = [];
-  const stash = (value: string, block = false) => {
+  const entries: { token: string; value: string; indent?: string }[] = [];
+  const stash = (value: string, block = false, indent?: string) => {
     // Preserve display width, not UTF-16 length: Japanese/fullwidth text takes
     // two columns, while ASCII and halfwidth kana take one. Do not truncate
     // long inline tokens, since that would also shorten their table columns.
@@ -31,55 +34,99 @@ export function protectObsidian(source: string): {
           Math.max(0, util.getStringWidth(value) - util.getStringWidth(marker)),
         );
     const token = block ? `<!--${id}-->` : id;
-    entries.push({ token, value });
+    entries.push({ token, value, indent });
     return token;
   };
 
   // A fenced block and inline code must be consumed before extension tokens.
-  // Callouts are kept as whole blocks: prose wrapping can otherwise merge the title and body.
-  const tokens =
-    /(^[ \t]*(?:>[ \t]*)*(?:[-+*] |\d+[.)] )?(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*(?:>[ \t]*)*\2[`~]*[^\S\n]*$|(?![\s\S])))|(`+)(?!`)[\s\S]*?(?<!`)\3(?!`)|(^([ \t]*)>[^\n]*\[![^\]\n]+\][^\n]*(?:\n\5>[^\n]*)*)|%%[\s\S]*?%%|<%[\s\S]*?%>|\$\$[\s\S]*?\$\$|(?<![\\\w$])\$(?!\s|\$)(?:\\.|[^$\n])*?[^\s\\]\$(?!\w)|==(?=\S)[^\n]*?\S==/gm;
-  const text = source.replace(
-    tokens,
-    (
-      value,
-      fence: string | undefined,
-      _marker,
-      inline: string | undefined,
-      callout: string | undefined,
-      indent: string | undefined,
-      offset: number,
-    ) => {
-      if (fence || inline) return value;
-      if (callout)
-        return (indent ?? "") + stash(value.slice((indent ?? "").length), true);
-      const before = source.slice(
-        source.lastIndexOf("\n", offset - 1) + 1,
-        offset,
-      );
-      const lineEnd = source.indexOf("\n", offset + value.length);
-      const after = source.slice(
-        offset + value.length,
-        lineEnd === -1 ? source.length : lineEnd,
-      );
-      const standalone = !before.trim() && !after.trim();
-      return stash(
-        value,
-        standalone && (value.includes("\n") || value.startsWith("$$")),
-      );
-    },
+  // Callouts are kept as whole blocks after formatting their body blocks:
+  // prose wrapping can otherwise merge the title and body.
+  const tokens = new RegExp(
+    [
+      /(?<fence>^[ \t]*(?:>[ \t]*)*(?:[-+*] |\d+[.)] )?(?<fenceMarker>`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^[ \t]*(?:>[ \t]*)*\k<fenceMarker>[`~]*[^\S\n]*$|(?![\s\S])))/
+        .source,
+      /(?<inline>`+)(?!`)[\s\S]*?(?<!`)\k<inline>(?!`)/.source,
+      ...(preserveCallouts
+        ? [
+            /(?<callout>^(?<indent>[ \t]*)(?<listMarker>(?:[-+*]|\d+[.)])[ \t]+)?>[^\n]*\[![^\]\n]+\][^\n]*(?:\n\k<indent>[ \t]*>[^\n]*)*)/
+              .source,
+          ]
+        : []),
+      /%%[\s\S]*?%%|<%[\s\S]*?%>|\$\$[\s\S]*?\$\$|(?<![\\\w$])\$(?!\s|\$)(?:\\.|[^$\n])*?[^\s\\]\$(?!\w)|==(?=\S)[^\n]*?\S==/
+        .source,
+    ].join("|"),
+    "gm",
   );
+  const text = source.replace(tokens, (value, ...args) => {
+    const { fence, inline, callout, indent, listMarker } = args[
+      args.length - 1
+    ] as Record<string, string | undefined>;
+    const offset = args[args.length - 3] as number;
+    if (fence || inline) return value;
+    if (callout) {
+      const prefix = (indent ?? "") + (listMarker ?? "");
+      return (
+        prefix +
+        stash(value.slice(prefix.length), true, prefix.replace(/\S/g, " "))
+      );
+    }
+    const before = source.slice(
+      source.lastIndexOf("\n", offset - 1) + 1,
+      offset,
+    );
+    const lineEnd = source.indexOf("\n", offset + value.length);
+    const after = source.slice(
+      offset + value.length,
+      lineEnd === -1 ? source.length : lineEnd,
+    );
+    const standalone =
+      (!before.trim() ||
+        (!preserveCallouts && /^[ \t]*(?:>[ \t]*)+$/.test(before))) &&
+      !after.trim();
+    const block =
+      standalone && (value.includes("\n") || value.startsWith("$$"));
+    return stash(value, block, block ? before : undefined);
+  });
 
   return {
     text,
     restore(formatted) {
-      for (const { token, value } of entries) {
+      for (const { token, value, indent } of entries) {
         if (formatted.split(token).length !== 2) {
           throw new Error(
             "Obsidian記法の保護に失敗したため、変更を適用しませんでした。",
           );
         }
-        formatted = formatted.replace(token, () => value);
+        let restored = value;
+        if (indent !== undefined) {
+          // Prettier may reduce a list's indentation around the placeholder.
+          // Move every continuation line with its header when restoring it.
+          const offset = formatted.indexOf(token);
+          const prefix = formatted.slice(
+            formatted.lastIndexOf("\n", offset - 1) + 1,
+            offset,
+          );
+          const newIndent = indent.includes(">")
+            ? prefix
+            : prefix.replace(/\S/g, " ");
+          restored = value
+            .split("\n")
+            .map((line, index) =>
+              index > 0 && line.startsWith(indent)
+                ? newIndent + line.slice(indent.length)
+                : line,
+            )
+            .join("\n");
+          // A callout match may include the CR before its final newline.
+          // Avoid duplicating it when Prettier also emits CRLF after the marker.
+          if (
+            restored.endsWith("\r") &&
+            formatted[offset + token.length] === "\r"
+          ) {
+            restored = restored.slice(0, -1);
+          }
+        }
+        formatted = formatted.replace(token, () => restored);
       }
       return formatted;
     },
